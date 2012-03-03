@@ -40,6 +40,7 @@
 #include "TerrainEditor.h"
 #include "MultiSelEditor.h"
 #include "ViewportEditor.h"
+#include "OgreCamera.h"
 
 namespace Ogitors
 {
@@ -53,6 +54,7 @@ bool                CViewportEditor::mIsSettingPos = false;
 bool               *CViewportEditor::mViewKeyboard = 0;
 OgitorsSpecialKeys  CViewportEditor::mSpecial;
 float               CViewportEditor::mSnapMultiplier = 1.0f;
+bool                CViewportEditor::mOrthographic = false;
 
 //-------------------------------------------------------------------------------
 void CViewportEditor::ResetCommonValues()
@@ -64,6 +66,7 @@ void CViewportEditor::ResetCommonValues()
     mCameraSpeed = 1.0f;
     mIsEditing = false;
     mIsSettingPos = false;
+    mOrthographic = false;
 }
 //-------------------------------------------------------------------------------
 void  CViewportEditor::SetEditorTool(unsigned int tool)
@@ -101,7 +104,7 @@ unsigned int CViewportEditor::GetEditorTool()
 void CViewportEditor::OnKeyDown (unsigned int key)
 {
     mViewKeyboard[key] = true;
-
+    
     if(!mOgitorsRoot->GetSelection()->isEmpty())
     {
         if(mViewKeyboard[mSpecial.SPK_SWITCH_AXIS] && GetEditorTool() >= TOOL_MOVE && GetEditorTool() <= TOOL_SCALE)
@@ -182,39 +185,52 @@ void CViewportEditor::OnMouseMove (Ogre::Vector2 point, unsigned int buttons, bo
         }
         else if(buttons & OMB_RIGHT)
         {
-            OgitorsSystem::getSingletonPtr()->ShowMouseCursor(false);
-            if(mViewKeyboard[mSpecial.SPK_OBJECT_CENTERED_MOVEMENT] && !multisel->isEmpty() && multisel->getAsSingle()->supports(CAN_FOCUS))
-            {
-                Ogre::Vector3 lookat =  multisel->getAsSingle()->getDerivedPosition();
-                Ogre::Vector3 vDistance = (mActiveCamera->getDerivedPosition() - lookat);
-                float fDist = vDistance.length();
-                vDistance = (mActiveCamera->getCamera()->getDerivedRight() * -DeltaX * fDist / 48.0f) + (mActiveCamera->getCamera()->getDerivedUp() * DeltaY * fDist / 96.0f) + vDistance;
-                vDistance.normalise();
-                Ogre::Vector3 vNewPos = lookat + (vDistance * fDist);
-                mActiveCamera->setDerivedPosition(vNewPos);
-                mActiveCamera->lookAt(lookat);
-                mNewCamPosition = Ogre::Vector3::ZERO;
+            if(OgitorsRoot::getSingleton().GetOrthographic()) {
+                int viewport_width = mHandle->getActualWidth();
+                int viewport_height = mHandle->getActualHeight();
+                // Invert delta in order to obtain rotation around viewport center
+                float tmp_delta_x, tmp_delta_y;
+                
+                tmp_delta_x = (point.x < viewport_width/2) ? -DeltaY : DeltaY;
+                tmp_delta_y = (point.y > viewport_height/2) ? -DeltaX : DeltaX;
+ 
+                mOrthographicCamera->roll(Ogre::Degree(tmp_delta_x / 4.0f));
+                mOrthographicCamera->roll(Ogre::Degree(tmp_delta_y / 4.0f));
+            } else {
+                OgitorsSystem::getSingletonPtr()->ShowMouseCursor(false);
+                if(mViewKeyboard[mSpecial.SPK_OBJECT_CENTERED_MOVEMENT] && !multisel->isEmpty() && multisel->getAsSingle()->supports(CAN_FOCUS))
+                {
+                    Ogre::Vector3 lookat =  multisel->getAsSingle()->getDerivedPosition();
+                    Ogre::Vector3 vDistance = (mActiveCamera->getDerivedPosition() - lookat);
+                    float fDist = vDistance.length();
+                    vDistance = (mActiveCamera->getCamera()->getDerivedRight() * -DeltaX * fDist / 48.0f) + (mActiveCamera->getCamera()->getDerivedUp() * DeltaY * fDist / 96.0f) + vDistance;
+                    vDistance.normalise();
+                    Ogre::Vector3 vNewPos = lookat + (vDistance * fDist);
+                    mActiveCamera->setDerivedPosition(vNewPos);
+                    mActiveCamera->lookAt(lookat);
+                    mNewCamPosition = Ogre::Vector3::ZERO;
+                }
+                else
+                {
+                    mActiveCamera->yaw(Ogre::Degree(-DeltaX / 4.0f));
+                    mActiveCamera->pitch(Ogre::Degree(-DeltaY / 4.0f));
+                }
+                OgitorsSystem::getSingletonPtr()->ShowMouseCursor(false);
+                
+    #if OGRE_PLATFORM != OGRE_PLATFORM_APPLE
+                point.x -= (DeltaX * 2.0f);
+                point.y -= (DeltaY * 2.0f);
+                
+                mIsSettingPos = true;
+                OgitorsSystem::getSingletonPtr()->SetMousePosition(point + Ogre::Vector2(mHandle->getActualLeft(),mHandle->getActualTop()));
+    #else
+                mLastMouse = point;
+    #endif
+                Ogre::Ray mouseRay;
+                if(!GetMouseRay(point, mouseRay)) return;
+                if(!ogRoot->GetSelection()->isEmpty())
+                    mLastUsedPlane = mOgitorsRoot->FindGizmoTranslationPlane(mouseRay,mEditorAxis);
             }
-            else
-            {
-                mActiveCamera->yaw(Ogre::Degree(-DeltaX / 4.0f));
-                mActiveCamera->pitch(Ogre::Degree(-DeltaY / 4.0f));
-            }
-            OgitorsSystem::getSingletonPtr()->ShowMouseCursor(false);
-            
-#if OGRE_PLATFORM != OGRE_PLATFORM_APPLE
-            point.x -= (DeltaX * 2.0f);
-            point.y -= (DeltaY * 2.0f);
-            
-            mIsSettingPos = true;
-            OgitorsSystem::getSingletonPtr()->SetMousePosition(point + Ogre::Vector2(mHandle->getActualLeft(),mHandle->getActualTop()));
-#else
-            mLastMouse = point;
-#endif
-            Ogre::Ray mouseRay;
-            if(!GetMouseRay(point, mouseRay)) return;
-            if(!ogRoot->GetSelection()->isEmpty())
-                mLastUsedPlane = mOgitorsRoot->FindGizmoTranslationPlane(mouseRay,mEditorAxis);
         }
     }
 
@@ -642,41 +658,54 @@ void CViewportEditor::OnMouseMiddleUp (Ogre::Vector2 point, unsigned int buttons
 //-------------------------------------------------------------------------------
 void CViewportEditor::OnMouseWheel (Ogre::Vector2 point, float delta, unsigned int buttons)
 {
-    mLastMouse = point;
-    mLastButtons = buttons;
+    if(OgitorsRoot::getSingleton().GetOrthographic()) {
+        Ogre::Camera* camera = mOrthographicCamera->getCamera();
+        Ogre::Real width = camera->getOrthoWindowWidth();
+        static Ogre::Real factor = 0.001f;
+        // the more width will be little, the more the objects will appear big.
+        // multiply for width to scale dimension slowly when approching to zero.
+        width += factor * -delta * width;
+        if(width < 1.0f) { // when width became negative the camera "invert" the viewport... don't allow this
+            width = 1;
+        }
+        camera->setOrthoWindowWidth(width);
+    } else {
+        mLastMouse = point;
+        mLastButtons = buttons;
+        
+        if(!mActiveCamera) return;
+        Ogre::Vector3 vPos = mActiveCamera->getDerivedPosition();
+    
+        CMultiSelEditor *multisel = mOgitorsRoot->GetSelection();
 
-    if(!mActiveCamera) return;
-    Ogre::Vector3 vPos = mActiveCamera->getDerivedPosition();
-  
-    CMultiSelEditor *multisel = mOgitorsRoot->GetSelection();
-
-    if(mViewKeyboard[mSpecial.SPK_OBJECT_CENTERED_MOVEMENT] && !multisel->isEmpty() && multisel->getAsSingle()->supports(CAN_FOCUS))
-    {
-        Ogre::Vector3 vObjPos = multisel->getAsSingle()->getDerivedPosition();
-        mActiveCamera->lookAt(vObjPos);
-        Ogre::Vector3 vDelta = vObjPos - vPos;
-        float fDelta = delta / 400.0f * mCameraSpeed;
-        if(delta > 0)
+        if(mViewKeyboard[mSpecial.SPK_OBJECT_CENTERED_MOVEMENT] && !multisel->isEmpty() && multisel->getAsSingle()->supports(CAN_FOCUS))
         {
-            vDelta *= std::min(fDelta,0.8f);
+            Ogre::Vector3 vObjPos = multisel->getAsSingle()->getDerivedPosition();
+            mActiveCamera->lookAt(vObjPos);
+            Ogre::Vector3 vDelta = vObjPos - vPos;
+            float fDelta = delta / 400.0f * mCameraSpeed;
+            if(delta > 0)
+            {
+                vDelta *= std::min(fDelta,0.8f);
+            }
+            else
+                vDelta *= std::max(fDelta,-0.7f);
+        
+            vPos += vDelta;
+            if((vPos - vObjPos).length() < 1.0f)
+            {
+                vDelta = vPos - vObjPos;
+                vDelta.normalise();
+                vPos = vObjPos + vDelta;
+            }
         }
         else
-            vDelta *= std::max(fDelta,-0.7f);
-    
-        vPos += vDelta;
-        if((vPos - vObjPos).length() < 1.0f)
         {
-            vDelta = vPos - vObjPos;
-            vDelta.normalise();
-            vPos = vObjPos + vDelta;
-        }
+            Ogre::Vector3 vDelta = Ogre::Vector3(0,0,delta / 32.0f) * mCameraSpeed;
+            vPos = vPos - (mActiveCamera->getDerivedOrientation() * vDelta);
+        } 
+        mNewCamPosition = vPos;
     }
-    else
-    {
-        Ogre::Vector3 vDelta = Ogre::Vector3(0,0,delta / 32.0f) * mCameraSpeed;
-        vPos = vPos - (mActiveCamera->getDerivedOrientation() * vDelta);
-    } 
-    mNewCamPosition = vPos;
 }
 //-------------------------------------------------------------------------------
 bool CViewportEditor::GetMouseRay( Ogre::Vector2 point, Ogre::Ray &mRay )
@@ -893,6 +922,9 @@ void CViewportEditor::UpdateAutoCameraPosition(float time)
 {
     if(!mActiveCamera)
         return;
+    // If camera is moving when the orthographic camera is setted it changes its position. this is bad.
+    if(OgitorsRoot::getSingleton().GetOrthographic()) 
+        return;
     if(mNewCamPosition != Ogre::Vector3::ZERO)
     {
         Ogre::Vector3 curpos = mActiveCamera->getDerivedPosition();
@@ -1008,121 +1040,146 @@ void CViewportEditor::ProcessKeyActions(unsigned int timesince)
     if(!mViewKeyboard)
         return;
     double timeMod = (double)timesince / 100.0f * mCameraSpeed;
-
-    if(mActiveCamera)
-    {
-        Ogre::Vector3 vPos = mActiveCamera->getPosition();
-
-        if(mViewKeyboard[mSpecial.SPK_FORWARD])
-        {
-            if(mNewCamPosition == Ogre::Vector3::ZERO)
-                mNewCamPosition = mActiveCamera->getDerivedPosition();
-            
-            if(mOgitorsRoot->GetWalkAroundMode())
-            {
-                Ogre::Vector3 dir = mActiveCamera->getCamera()->getDerivedDirection();
-                dir.y = 0.0f;
-                mNewCamPosition += dir.normalisedCopy() * timeMod;
+    
+    if(OgitorsRoot::getSingleton().GetOrthographic()) {
+        if(mOrthographicCamera) {
+            Ogre::Vector3 vPos = Ogre::Vector3::ZERO;
+            Ogre::Camera* cam = mOrthographicCamera->getCamera();
+            Ogre::Vector3 position = mOrthographicCamera->getPosition();
+            if(mViewKeyboard[mSpecial.SPK_FORWARD]) {
+                vPos.y += 1;
             }
-            else
-                mNewCamPosition += mActiveCamera->getCamera()->getDerivedDirection() * timeMod;
+            if(mViewKeyboard[mSpecial.SPK_BACKWARD])
+            {
+                vPos.y -= 1;
+            }
+            if(mViewKeyboard[mSpecial.SPK_LEFT])
+            {
+                vPos.x -= 1;
+            }
+            if(mViewKeyboard[mSpecial.SPK_RIGHT])
+            {
+                vPos.x += 1;
+            }
+            mOrthographicCamera->setPosition(mOrthographicCamera->getPosition() + mActiveCamera->getOrientation() * vPos * timeMod);
         }
-        if(mViewKeyboard[mSpecial.SPK_BACKWARD])
-        {
-            if(mNewCamPosition == Ogre::Vector3::ZERO)
-                mNewCamPosition = mActiveCamera->getDerivedPosition();
+    } else {
 
-            if(mOgitorsRoot->GetWalkAroundMode())
-            {
-                Ogre::Vector3 dir = mActiveCamera->getCamera()->getDerivedDirection();
-                dir.y = 0.0f;
-                mNewCamPosition -= dir.normalisedCopy() * timeMod;
-            }
-            else
-                mNewCamPosition -= mActiveCamera->getCamera()->getDerivedDirection() * timeMod;
-        }
-        if(mViewKeyboard[mSpecial.SPK_LEFT])
+        if(mActiveCamera)
         {
-            if(mOgitorsRoot->GetWalkAroundMode())
-            {
-                Ogre::Quaternion orient = Ogre::Quaternion(Ogre::Degree((float)timesince / 10.0f),Ogre::Vector3(0,1,0)) * mActiveCamera->getOrientation();
-                mActiveCamera->setOrientation(orient);
+            Ogre::Vector3 vPos = mActiveCamera->getPosition();
 
-                Ogre::Ray mouseRay;
-                if(GetMouseRay(mLastMouse, mouseRay))
-                {
-                    if(!mOgitorsRoot->GetSelection()->isEmpty())
-                        mLastUsedPlane = mOgitorsRoot->FindGizmoTranslationPlane(mouseRay,mEditorAxis);
-                }
-            }
-            else
-            {
-                if(mNewCamPosition == Ogre::Vector3::ZERO)
-                    mNewCamPosition = mActiveCamera->getDerivedPosition();
-                mNewCamPosition -= mActiveCamera->getCamera()->getDerivedRight() * timeMod;
-            }
-        }
-        if(mViewKeyboard[mSpecial.SPK_RIGHT])
-        {
-            if(mOgitorsRoot->GetWalkAroundMode())
-            {
-                Ogre::Quaternion orient = Ogre::Quaternion(Ogre::Degree((float)timesince / -10.0f),Ogre::Vector3(0,1,0)) * mActiveCamera->getOrientation();
-                mActiveCamera->setOrientation(orient);
-
-                Ogre::Ray mouseRay;
-                if(GetMouseRay(mLastMouse, mouseRay))
-                {
-                    if(!mOgitorsRoot->GetSelection()->isEmpty())
-                        mLastUsedPlane = mOgitorsRoot->FindGizmoTranslationPlane(mouseRay,mEditorAxis);
-                }
-            }
-            else
-            {
-                if(mNewCamPosition == Ogre::Vector3::ZERO)
-                    mNewCamPosition = mActiveCamera->getDerivedPosition();
-                mNewCamPosition += mActiveCamera->getCamera()->getDerivedRight() * timeMod;
-            }
-        }
-        if(mViewKeyboard[mSpecial.SPK_UP])
-        {
-            if(mOgitorsRoot->GetWalkAroundMode())
-            {
-                mOgitorsRoot->GetProjectOptions()->WalkAroundHeight += timeMod;
-            }
-            else
-            {
-                if(mNewCamPosition == Ogre::Vector3::ZERO)
-                    mNewCamPosition = mActiveCamera->getDerivedPosition();
-                mNewCamPosition += Ogre::Vector3(0,1,0) * timeMod;
-            }
-        }
-        if(mViewKeyboard[mSpecial.SPK_DOWN])
-        {
-            if(mOgitorsRoot->GetWalkAroundMode())
-            {
-                mOgitorsRoot->GetProjectOptions()->WalkAroundHeight = std::max(mOgitorsRoot->GetProjectOptions()->WalkAroundHeight - (float)timeMod, 0.0f);
-            }
-            else
-            {
-                if(mNewCamPosition == Ogre::Vector3::ZERO)
-                    mNewCamPosition = mActiveCamera->getDerivedPosition();
-                mNewCamPosition -= Ogre::Vector3(0,1,0) * timeMod;
-            }
-        }
-
-        if(mOgitorsRoot->GetWalkAroundMode())
-        {
-            if(mOgitorsRoot->GetTerrainEditor())
+            if(mViewKeyboard[mSpecial.SPK_FORWARD])
             {
                 if(mNewCamPosition == Ogre::Vector3::ZERO)
                     mNewCamPosition = mActiveCamera->getDerivedPosition();
                 
-                Ogitors::PGHeightFunction *func = mOgitorsRoot->GetTerrainEditor()->getHeightFunction();
-                mNewCamPosition.y = mOgitorsRoot->GetProjectOptions()->WalkAroundHeight + (*func)(mNewCamPosition.x, mNewCamPosition.z, 0);
+                if(mOgitorsRoot->GetWalkAroundMode())
+                {
+                    Ogre::Vector3 dir = mActiveCamera->getCamera()->getDerivedDirection();
+                    dir.y = 0.0f;
+                    mNewCamPosition += dir.normalisedCopy() * timeMod;
+                }
+                else
+                    mNewCamPosition += mActiveCamera->getCamera()->getDerivedDirection() * timeMod;
             }
-        }
+            if(mViewKeyboard[mSpecial.SPK_BACKWARD])
+            {
+                if(mNewCamPosition == Ogre::Vector3::ZERO)
+                    mNewCamPosition = mActiveCamera->getDerivedPosition();
 
-    } // if get camera
+                if(mOgitorsRoot->GetWalkAroundMode())
+                {
+                    Ogre::Vector3 dir = mActiveCamera->getCamera()->getDerivedDirection();
+                    dir.y = 0.0f;
+                    mNewCamPosition -= dir.normalisedCopy() * timeMod;
+                }
+                else
+                    mNewCamPosition -= mActiveCamera->getCamera()->getDerivedDirection() * timeMod;
+            }
+            if(mViewKeyboard[mSpecial.SPK_LEFT])
+            {
+                if(mOgitorsRoot->GetWalkAroundMode())
+                {
+                    Ogre::Quaternion orient = Ogre::Quaternion(Ogre::Degree((float)timesince / 10.0f),Ogre::Vector3(0,1,0)) * mActiveCamera->getOrientation();
+                    mActiveCamera->setOrientation(orient);
+
+                    Ogre::Ray mouseRay;
+                    if(GetMouseRay(mLastMouse, mouseRay))
+                    {
+                        if(!mOgitorsRoot->GetSelection()->isEmpty())
+                            mLastUsedPlane = mOgitorsRoot->FindGizmoTranslationPlane(mouseRay,mEditorAxis);
+                    }
+                }
+                else
+                {
+                    if(mNewCamPosition == Ogre::Vector3::ZERO)
+                        mNewCamPosition = mActiveCamera->getDerivedPosition();
+                    mNewCamPosition -= mActiveCamera->getCamera()->getDerivedRight() * timeMod;
+                }
+            }
+            if(mViewKeyboard[mSpecial.SPK_RIGHT])
+            {
+                if(mOgitorsRoot->GetWalkAroundMode())
+                {
+                    Ogre::Quaternion orient = Ogre::Quaternion(Ogre::Degree((float)timesince / -10.0f),Ogre::Vector3(0,1,0)) * mActiveCamera->getOrientation();
+                    mActiveCamera->setOrientation(orient);
+
+                    Ogre::Ray mouseRay;
+                    if(GetMouseRay(mLastMouse, mouseRay))
+                    {
+                        if(!mOgitorsRoot->GetSelection()->isEmpty())
+                            mLastUsedPlane = mOgitorsRoot->FindGizmoTranslationPlane(mouseRay,mEditorAxis);
+                    }
+                }
+                else
+                {
+                    if(mNewCamPosition == Ogre::Vector3::ZERO)
+                        mNewCamPosition = mActiveCamera->getDerivedPosition();
+                    mNewCamPosition += mActiveCamera->getCamera()->getDerivedRight() * timeMod;
+                }
+            }
+            if(mViewKeyboard[mSpecial.SPK_UP])
+            {
+                if(mOgitorsRoot->GetWalkAroundMode())
+                {
+                    mOgitorsRoot->GetProjectOptions()->WalkAroundHeight += timeMod;
+                }
+                else
+                {
+                    if(mNewCamPosition == Ogre::Vector3::ZERO)
+                        mNewCamPosition = mActiveCamera->getDerivedPosition();
+                    mNewCamPosition += Ogre::Vector3(0,1,0) * timeMod;
+                }
+            }
+            if(mViewKeyboard[mSpecial.SPK_DOWN])
+            {
+                if(mOgitorsRoot->GetWalkAroundMode())
+                {
+                    mOgitorsRoot->GetProjectOptions()->WalkAroundHeight = std::max(mOgitorsRoot->GetProjectOptions()->WalkAroundHeight - (float)timeMod, 0.0f);
+                }
+                else
+                {
+                    if(mNewCamPosition == Ogre::Vector3::ZERO)
+                        mNewCamPosition = mActiveCamera->getDerivedPosition();
+                    mNewCamPosition -= Ogre::Vector3(0,1,0) * timeMod;
+                }
+            }
+
+            if(mOgitorsRoot->GetWalkAroundMode())
+            {
+                if(mOgitorsRoot->GetTerrainEditor())
+                {
+                    if(mNewCamPosition == Ogre::Vector3::ZERO)
+                        mNewCamPosition = mActiveCamera->getDerivedPosition();
+                    
+                    Ogitors::PGHeightFunction *func = mOgitorsRoot->GetTerrainEditor()->getHeightFunction();
+                    mNewCamPosition.y = mOgitorsRoot->GetProjectOptions()->WalkAroundHeight + (*func)(mNewCamPosition.x, mNewCamPosition.z, 0);
+                }
+            }
+
+        } // if get camera
+    }
 }
 //-------------------------------------------------------------------------------
 void CViewportEditor::LoadEditorObjects()

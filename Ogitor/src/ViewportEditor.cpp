@@ -53,6 +53,8 @@ CViewportEditor::CViewportEditor(CBaseEditorFactory *factory) : CBaseEditor(fact
     mUsesHelper = false;
 
     mActiveCamera = 0;
+    mPreviousCamera = 0;
+    mOrthographicCamera = 0;
     mViewCamera = 0;
 
     mGridVisible = true;
@@ -154,7 +156,12 @@ void CViewportEditor::_createViewport()
     CBaseEditorFactory *factory = mOgitorsRoot->GetEditorObjectFactory("Camera Object");
     mViewCamera = static_cast<CCameraEditor*>(factory->CreateObject(&ScnMgr,params));
     mViewCamera->load();
-
+    mViewCamera->lookAt(Ogre::Vector3(0,0,0));
+    
+    CBaseEditorFactory* ortho_cam_factory = mOgitorsRoot->GetEditorObjectFactory("Orthographic Camera Object");
+    mOrthographicCamera = static_cast<COrthographicCameraEditor*>(ortho_cam_factory->CreateObject(&ScnMgr,params));
+    mOrthographicCamera->load();
+    
     mHandle = mOgitorsRoot->GetRenderWindow()->addViewport(mViewCamera->getCamera(),mViewportIndex->get(),mPlacement->get().x,mPlacement->get().y,mPlacement->get().z,mPlacement->get().w);
 
     if(mName->get() == "")
@@ -209,7 +216,13 @@ void CViewportEditor::setCameraEditor(CCameraEditor *camed)
 {
     if(camed == mActiveCamera)
         return;
-
+    
+    if(camed == mOrthographicCamera) {
+        OgitorsRoot::getSingleton().SetGuiForOrthographic();
+    } else {
+        OgitorsRoot::getSingleton().SetGuiForNormalPerspective();
+    }
+    
     if(mActiveCamera) 
     {
         mActiveCamera->showHelper(true);
@@ -828,6 +841,15 @@ TiXmlElement* CViewportEditor::exportDotScene(TiXmlElement *pParent)
     return pViewport;
 }
 
+
+void CViewportEditor::SetOrthographicCamera() {
+    mPreviousCamera = getCameraEditor();
+    setCameraEditor(mOrthographicCamera);
+}
+
+void CViewportEditor::SetPreviousCamera() {
+    setCameraEditor(mPreviousCamera);
+}
 //-------------------------------------------------------------------------------
 //----------------CVIEWPORTEDITORFACTORY-----------------------------------------
 //-------------------------------------------------------------------------------

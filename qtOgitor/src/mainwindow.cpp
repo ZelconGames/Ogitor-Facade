@@ -226,7 +226,7 @@ MainWindow::MainWindow(QString args, QWidget *parent)
 
     createPlayerToolbar();
 
-    createCustomToolbars();
+//     createCustomToolbars(); //TODO error, fault of clynamen?
 
     mTerrainToolsWidget = new TerrainToolsWidget(parent);
 
@@ -1104,6 +1104,10 @@ void MainWindow::setupStatusBar()
     mFPSSlider->setMaximumWidth(100);
     mFPSSliderLabel = new QLabel(tr("FPS (30)"));
     mFPSSlider->setSliderPosition(5);
+    
+    mOrthoModeCheckBox = new QCheckBox();
+    mOrthoModeCheckBox->setCheckState(Qt::Unchecked);
+    mOrthoModeCheckBox->setText(tr("Orthographic perspective"));
 
 
     mTriangleCountLabel = new QLabel(tr("Triangles : %1").arg(0));
@@ -1118,6 +1122,7 @@ void MainWindow::setupStatusBar()
     mCamPosToolBar->addWidget(mMemoryUsageLabel);
     mCamPosToolBar->addSeparator();
 #endif
+    mCamPosToolBar->addWidget(mOrthoModeCheckBox);
     mCamPosToolBar->addWidget(mTriangleCountLabel);
     mCamPosToolBar->addSeparator();
     mCamPosToolBar->addWidget(mCamPosLabel);
@@ -1126,6 +1131,7 @@ void MainWindow::setupStatusBar()
     mCamPosToolBar->addSeparator();
     mCamPosToolBar->addWidget(mFPSSliderLabel);
     mCamPosToolBar->addWidget(mFPSSlider);
+
 
     mStatusViewToolBar = new QToolBar();
     mStatusViewToolBar->setIconSize(QSize(16, 16));
@@ -1153,6 +1159,7 @@ void MainWindow::setupStatusBar()
     mStatusBar->addPermanentWidget(mStatusShowHideToolBar);
 
     connect(mFPSSlider, SIGNAL(valueChanged( int )), this, SLOT(fpsValueChanged( int )));
+    connect(mOrthoModeCheckBox, SIGNAL(clicked(bool)), this, SLOT(setPerspective(bool)));
 }
 //------------------------------------------------------------------------------
 static LogBuffer LOGBUFFER;

@@ -46,6 +46,7 @@
 #include "EntityEditor.h"
 #include "LightEditor.h"
 #include "CameraEditor.h"
+#include "OrthographicCameraEditor.h"
 #include "MarkerEditor.h"
 #include "PlaneEditor.h"
 #include "BillboardSetEditor.h"
@@ -67,8 +68,10 @@
 #include "Event.h"
 #include "DefaultEvents.h"
 #include "EventManager.h"
+#include "OgreCamera.h"
 
 #include "ofs.h"
+#include "../../qtOgitor/include/mainwindow.hxx"
 
 
 using namespace Ogre;
@@ -129,7 +132,7 @@ OgitorsRoot::OgitorsRoot(Ogre::StringVector* pDisabledPluginPaths) :
 mUndoManager(0), mClipboardManager(0), mSceneManager(0), mSceneManagerEditor(0), mRenderWindow(0), mActiveViewport(0),
 mRootEditor(0), mMultiSelection(0), mLastTranslationDelta(Vector3::ZERO),
 mTerrainEditor(0), mTerrainEditorObject(0), mPagingEditor(0), mPagingEditorObject(0), mIsSceneModified(false),
-mGlobalLightVisiblity(true), mGlobalCameraVisiblity(true), mSelRect(0), mSelectionNode(0),
+mGlobalLightVisiblity(true), mGlobalCameraVisiblity(true), mOrthographicMode(false), mSelRect(0), mSelectionNode(0),
 mMouseListener(0), mKeyboardListener(0),
 mGizmoScale(1.0f), mGizmoNode(0), mGizmoX(0), mGizmoY(0), mGizmoZ(0), mWorldSpaceGizmoOrientation(false),
 mOldGizmoMode(256), mOldGizmoAxis(256), mWalkAroundMode(false), mActiveDragSource(0)
@@ -503,6 +506,7 @@ void OgitorsRoot::RegisterAllEditorObjects(Ogre::StringVector* pDisabledPluginPa
     _RegisterEditorFactory(OGRE_NEW CEntityEditorFactory());
     _RegisterEditorFactory(OGRE_NEW CLightEditorFactory());
     _RegisterEditorFactory(OGRE_NEW CCameraEditorFactory());
+    _RegisterEditorFactory(OGRE_NEW COrthographicCameraEditorFactory());
     _RegisterEditorFactory(OGRE_NEW CNodeEditorFactory());
     _RegisterEditorFactory(OGRE_NEW CPlaneEditorFactory());
     _RegisterEditorFactory(OGRE_NEW CBillboardSetEditorFactory());
@@ -1751,6 +1755,37 @@ void OgitorsRoot::SetCameraVisiblity(bool visibility)
         it->second->showHelper(visibility);
         it++;
     }
+}
+//-----------------------------------------------------------------------------------------
+void OgitorsRoot::SetOrthographicCamera()
+{
+    GetViewport()->SetOrthographicCamera();
+}
+//-----------------------------------------------------------------------------------------
+void OgitorsRoot::SetNormalCamera() {
+    GetViewport()->SetPreviousCamera();
+}
+//-----------------------------------------------------------------------------------------
+void OgitorsRoot::SetGuiForOrthographic() {
+    mOrthographicMode = true; 
+    mOgitorMainWindow->mOrthoModeCheckBox->setChecked(true); 
+    mOgitorMainWindow->mCameraViewModeBox->setItemText(1,"Nord");
+    mOgitorMainWindow->mCameraViewModeBox->setItemText(2,"East");
+    mOgitorMainWindow->mCameraViewModeBox->setItemText(3,"South");
+    mOgitorMainWindow->mCameraViewModeBox->setItemText(4,"West");
+    mOgitorMainWindow->mCameraViewModeBox->setMaxVisibleItems(5);
+    UpdateGizmo();
+}
+//-----------------------------------------------------------------------------------------
+void OgitorsRoot::SetGuiForNormalPerspective() {
+    mOrthographicMode = false; 
+    mOgitorMainWindow->mOrthoModeCheckBox->setChecked(false); 
+    mOgitorMainWindow->mCameraViewModeBox->setItemText(1,"FIXED");
+    mOgitorMainWindow->mCameraViewModeBox->setItemText(2,"G_LEFT");
+    mOgitorMainWindow->mCameraViewModeBox->setItemText(3,"G_RIGHT");
+    mOgitorMainWindow->mCameraViewModeBox->setItemText(4,"G_FRONT");
+    mOgitorMainWindow->mCameraViewModeBox->setMaxVisibleItems(15);
+    UpdateGizmo();
 }
 //-----------------------------------------------------------------------------------------
 void OgitorsRoot::GetAutoTrackTargets(Ogre::StringVector &list)

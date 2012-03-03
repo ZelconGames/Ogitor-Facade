@@ -667,6 +667,7 @@ void OgitorsRoot::CreateGizmo()
 //-----------------------------------------------------------------------------------------
 void OgitorsRoot::UpdateGizmo()
 {
+    //TODO
     CViewportEditor *viewport = GetViewport();
 
     if(mGizmoEntities[0])
@@ -741,11 +742,19 @@ void OgitorsRoot::UpdateGizmo()
 
         mGizmoNode->setPosition(position);
         mGizmoNode->setOrientation(orient);
-        mGizmoNode->setScale(distance, distance, distance);
+        float orthographic_factor = 1;
+        if(OgitorsRoot::getSingleton().GetOrthographic()) {
+            orthographic_factor = 10 / OgitorsRoot::getSingleton().GetViewport()->getCameraEditor()
+                                                            ->getCamera()->getOrthoWindowWidth();
+        }
+        Ogre::Vector3 scale(distance, distance, distance);
+        mGizmoNode->setScale(scale * orthographic_factor);
         mGizmoNode->setVisible(true);
     }
     else
         mGizmoNode->setVisible(false);
+    // force gizmo draw.
+    SetGizmoMode(mOldGizmoMode);
  }
 //-----------------------------------------------------------------------------------------
 void OgitorsRoot::HighlightGizmo(int ID)
@@ -803,8 +812,7 @@ void OgitorsRoot::SetGizmoScale(Ogre::Real value)
 //-----------------------------------------------------------------------------------------
 void OgitorsRoot::SetGizmoMode(int mode)
 {
-    if(mOldGizmoMode == mode) 
-        return;
+    bool using_orthographic = OgitorsRoot::getSingleton().GetOrthographic();
     mOldGizmoMode = mode;
     Entity* wx = mGizmoEntities[0];
     Entity* wy = mGizmoEntities[1];
@@ -834,10 +842,14 @@ void OgitorsRoot::SetGizmoMode(int mode)
     case TOOL_MOVE:
         {
             wx->getSubEntity(2)->setVisible(true);
-            wy->getSubEntity(2)->setVisible(true);
             wz->getSubEntity(2)->setVisible(true);
             mGizmoEntities[3]->getSubEntity(0)->setVisible(true);
-            mGizmoEntities[4]->getSubEntity(0)->setVisible(true);
+            if(using_orthographic && mWorldSpaceGizmoOrientation) {
+                wy->getSubEntity(0)->setVisible(false);
+            } else {
+                wy->getSubEntity(2)->setVisible(true);
+                mGizmoEntities[4]->getSubEntity(0)->setVisible(true);
+            }
             mGizmoEntities[5]->getSubEntity(0)->setVisible(true);
             break;
         }
@@ -846,22 +858,31 @@ void OgitorsRoot::SetGizmoMode(int mode)
             wx->getSubEntity(0)->setVisible(false);
             wy->getSubEntity(0)->setVisible(false);
             wz->getSubEntity(0)->setVisible(false);
-            wx->getSubEntity(1)->setVisible(true);
             wy->getSubEntity(1)->setVisible(true);
-            wz->getSubEntity(1)->setVisible(true);
-            wx->getSubEntity(3)->setVisible(true);
             wy->getSubEntity(3)->setVisible(true);
-            wz->getSubEntity(3)->setVisible(true);
+            if(using_orthographic && mWorldSpaceGizmoOrientation) {
+                wx->getSubEntity(1)->setVisible(false);
+                wz->getSubEntity(1)->setVisible(false);
+                wx->getSubEntity(3)->setVisible(false);
+                wz->getSubEntity(3)->setVisible(false);
+            } else {
+                wx->getSubEntity(1)->setVisible(true);
+                wz->getSubEntity(1)->setVisible(true);
+                wx->getSubEntity(3)->setVisible(true);
+                wz->getSubEntity(3)->setVisible(true);
+            }
             break;
         }
     case TOOL_SCALE:
         {
             wx->getSubEntity(4)->setVisible(true);
-            wy->getSubEntity(4)->setVisible(true);
             wz->getSubEntity(4)->setVisible(true);
             mGizmoEntities[3]->getSubEntity(0)->setVisible(true);
-            mGizmoEntities[4]->getSubEntity(0)->setVisible(true);
             mGizmoEntities[5]->getSubEntity(0)->setVisible(true);
+            if(!using_orthographic || !mWorldSpaceGizmoOrientation) {
+                wy->getSubEntity(4)->setVisible(true); 
+                mGizmoEntities[4]->getSubEntity(0)->setVisible(true);
+            }
             break;
         }
     }

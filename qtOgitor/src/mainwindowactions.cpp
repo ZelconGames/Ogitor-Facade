@@ -574,6 +574,14 @@ void MainWindow::fpsValueChanged ( int value )
     mFPSSliderLabel->setText(QString("FPS (%1)").arg(mTargetRenderCount));
 }
 //------------------------------------------------------------------------------
+void MainWindow::setPerspective (bool orthographic) {
+    if(orthographic) {
+        OgitorsRoot::getSingleton().SetOrthographicCamera();;
+    } else {
+        OgitorsRoot::getSingleton().SetNormalCamera();;
+    }
+}
+//------------------------------------------------------------------------------
 void MainWindow::showAbout()
 {
     aboutdialog dialog(this, QString(OGITOR_VERSION));

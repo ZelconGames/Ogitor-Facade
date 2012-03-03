@@ -13,6 +13,7 @@ set(Ogitor_hdrs
 	./include/BaseSerializer.h
 	./include/BillboardSetEditor.h
 	./include/CameraEditor.h
+        ./include/OrthographicCameraEditor.h
 	./include/CameraVisualHelper.h
 	./include/DefaultEvents.h
 	./include/EditableMeshEditor.h
@@ -68,11 +69,12 @@ set(Ogitor_hdrs
 	./include/tinyxml.h
 )
 
-set(Ogitor_srcs
+set(Ogitor_srcs 
 	./src/AxisGizmo.cpp
 	./src/BaseEditor.cpp
 	./src/BillboardSetEditor.cpp
 	./src/CameraEditor.cpp
+        ./src/OrthographicCameraEditor.cpp 
 	./src/CameraVisualHelper.cpp
 	./src/DefaultEvents.cpp
 	./src/EditableMeshEditor.cpp
