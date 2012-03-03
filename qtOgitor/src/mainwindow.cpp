@@ -226,7 +226,7 @@ MainWindow::MainWindow(QString args, QWidget *parent)
 
     createPlayerToolbar();
 
-//     createCustomToolbars(); //TODO error, fault of clynamen?
+    createCustomToolbars(); 
 
     mTerrainToolsWidget = new TerrainToolsWidget(parent);
 

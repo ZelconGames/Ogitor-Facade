@@ -121,7 +121,7 @@ set(Ogitor_srcs
 	./src/PGInstanceEditor.cpp
 	./src/SceneManagerEditor.cpp
 	./src/Selection2D.cpp
-  ./src/StringId.cpp
+        ./src/StringId.cpp
 	./src/ViewGrid.cpp
 	./src/ViewportEditor.cpp
 	./src/ViewportEditorEvents.cpp

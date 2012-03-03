@@ -617,9 +617,6 @@ namespace Ogitors
         * @return true if terrain is hit, otherwise false
         */
         bool GetHitPosition(Ogre::Ray &mouseRay, Ogre::Vector3& position, const Ogre::StringVector& excludeobjects);
-    void toString();
-        
-        static const int KEY_P = 80;
     };
     //! Viewport editor factory class
     /*!  

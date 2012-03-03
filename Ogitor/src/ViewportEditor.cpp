@@ -156,7 +156,6 @@ void CViewportEditor::_createViewport()
     CBaseEditorFactory *factory = mOgitorsRoot->GetEditorObjectFactory("Camera Object");
     mViewCamera = static_cast<CCameraEditor*>(factory->CreateObject(&ScnMgr,params));
     mViewCamera->load();
-    mViewCamera->lookAt(Ogre::Vector3(0,0,0));
     
     CBaseEditorFactory* ortho_cam_factory = mOgitorsRoot->GetEditorObjectFactory("Orthographic Camera Object");
     mOrthographicCamera = static_cast<COrthographicCameraEditor*>(ortho_cam_factory->CreateObject(&ScnMgr,params));
