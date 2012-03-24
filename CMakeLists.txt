@@ -40,6 +40,7 @@ set(OGITOR_PREPROCESSOR "OGITOR_EXPORT")
 
 set(OGITOR_QT_PREPROCESSOR "")
 
+set(PLUGINS_OUTPUT_DIR "${CMAKE_BINARY_DIR}/RunPath/Plugins/") # Plugin output directories for the facade plugins
 
 # Find Boost
 # Prefer static linking in all cases
@@ -202,6 +203,8 @@ add_subdirectory(Plugins/OgMaterialEditor)
 add_subdirectory(Plugins/OgAngelScript)
 add_subdirectory(Plugins/OgScriptEditor)
 add_subdirectory(Plugins/OgAngelDialogManager)
+
+add_subdirectory(Ogitor-Facade-Plugins)
 
 add_subdirectory(OgreOfsPlugin)
 
