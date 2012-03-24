@@ -1,0 +1,3 @@
+[submodule "Ogitor-Facade-Plugins"]
+	path = Ogitor-Facade-Plugins
+	url = git@github.com:clynamen/Ogitor-Facade-Plugins.git

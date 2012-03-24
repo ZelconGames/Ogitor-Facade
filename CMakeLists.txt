@@ -40,6 +40,7 @@ set(OGITOR_PREPROCESSOR "OGITOR_EXPORT")
 
 set(OGITOR_QT_PREPROCESSOR "")
 
+set(PLUGINS_OUTPUT_DIR "${CMAKE_BINARY_DIR}/RunPath/Plugins/") # Plugin output directories for the facade plugins
 
 # Find Boost
 # Prefer static linking in all cases
@@ -50,7 +51,7 @@ if (NOT OGRE_BUILD_PLATFORM_IPHONE)
 		# Statically linking boost to a dynamic Ogre build doesn't work on Linux 64bit
 		set(Boost_USE_STATIC_LIBS ${OGRE_STATIC})
 	endif ()
-	set(Boost_ADDITIONAL_VERSIONS "1.38.0" "1.38" "1.39.0" "1.39" "1.40.0" "1.40" "1.44.0" "1.44" "1.45" "1.46")
+	set(Boost_ADDITIONAL_VERSIONS "1.38.0" "1.38" "1.39.0" "1.39" "1.40.0" "1.40" "1.44.0" "1.44" "1.45" "1.46" "1.49" "1.49.0")
 	# Components that need linking (NB does not include header-only components like bind)
 	set(OGRE_BOOST_COMPONENTS thread date_time regex)
 	find_package(Boost COMPONENTS ${OGRE_BOOST_COMPONENTS} QUIET)
@@ -89,6 +90,7 @@ set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/CMakeModules/;${CMAKE_MODULE_
 #endif(UNIX)
 
 find_package(OGRE REQUIRED)
+find_package(Threads)
 
 if(APPLE)
 	find_package(CG REQUIRED)
@@ -201,6 +203,8 @@ add_subdirectory(Plugins/OgMaterialEditor)
 add_subdirectory(Plugins/OgAngelScript)
 add_subdirectory(Plugins/OgScriptEditor)
 add_subdirectory(Plugins/OgAngelDialogManager)
+
+add_subdirectory(Ogitor-Facade-Plugins)
 
 add_subdirectory(OgreOfsPlugin)
 
